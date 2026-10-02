@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>倉儲輸送規劃器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23f39c32'/><path d='M6 20h20M6 14h20' stroke='%23222' stroke-width='3'/></svg>" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <div class="brand">倉儲輸送規劃器<span>Warehouse Conveyor Planner</span></div>
+
+        <div class="group" id="tools">
+          <button data-tool="select" title="選取／移動 (V)">選取 <kbd>V</kbd></button>
+          <button data-tool="belt" title="輸送帶 (C)">輸送帶 <kbd>C</kbd></button>
+          <button data-tool="dismantle" title="拆除 (F)">拆除 <kbd>F</kbd></button>
+        </div>
+
+        <div class="group">
+          <button id="modeBtn"></button>
+          <button id="gridBtn" title="網格吸附 (G)">網格 <kbd>G</kbd></button>
+          <span class="lbl" id="heightName">端點高度</span>
+          <button id="hDown" class="sq">−</button><span id="heightLbl" class="lbl mono"></span><button id="hUp" class="sq">+</button>
+          <label class="lbl" title="輸送帶終點放在空地時，自動從那裡接著拉下一段"><input type="checkbox" id="chainChk" checked /> 連續建造</label>
+          <label class="lbl" title="最小彎曲半徑 (mBendRadius)">半徑 <input id="bendInput" type="number" min="0.5" max="8" step="0.5" /> m</label>
+        </div>
+
+        <div class="group" id="simCtl">
+          <button id="playBtn">⏸ 暫停</button>
+          <select id="speedSel" title="模擬速度">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+            <option value="10">10×</option>
+            <option value="30">30×</option>
+          </select>
+          <button id="resetSimBtn" title="清空線上的箱子與統計">重設</button>
+          <span id="simTime" class="lbl mono"></span>
+        </div>
+
+        <div class="group">
+          <button id="labelsBtn" class="active">標籤 <kbd>L</kbd></button>
+          <button id="heatBtn">利用率 <kbd>M</kbd></button>
+        </div>
+
+        <div class="group right">
+          <button id="demoBtn">示範倉庫</button>
+          <button id="exportBtn">匯出</button>
+          <button id="importBtn">匯入</button>
+          <input type="file" id="importFile" accept="application/json" hidden />
+          <button id="clearBtn">清空</button>
+          <button id="helpBtn">說明 <kbd>H</kbd></button>
+        </div>
+      </header>
+
+      <aside id="palette"></aside>
+      <main id="viewport"></main>
+      <aside id="side">
+        <section id="selection"></section>
+        <section id="summary"></section>
+      </aside>
+      <footer id="status">
+        <span id="step"></span>
+        <span id="hint"></span>
+        <span id="coords" class="mono"></span>
+      </footer>
+
+      <div id="help" class="overlay hidden">
+        <div class="card">
+          <button class="close">✕</button>
+          <h2>倉儲輸送規劃器</h2>
+          <p>
+            規劃倉庫裡的物流箱輸送線：箱子從<b>供箱口</b>上線，經過<b>分流器</b>分配、<b>集合器</b>匯流，送到<b>收箱口</b>（儲位、包裝站、出貨碼頭）。
+            用<b>牆壁</b>劃分區域，牆上的洞口讓箱子進出這一區。輸送帶使用 Dubins「彎-直-彎」路由，自動連接兩端接口。
+          </p>
+          <div class="cols">
+            <div>
+              <h3>建造流程</h3>
+              <ol>
+                <li>按 <kbd>1</kbd> <b>供箱口</b>、<kbd>2</kbd> <b>收箱口</b>、<kbd>3</kbd> <b>分流器</b>、<kbd>4</kbd> <b>集合器</b>、<kbd>5</kbd> <b>貨架</b>：<b>第一下</b>決定水平位置，<b>往上移動滑鼠</b>拉出高度，<b>第二下</b>放置（右鍵回到第一步；<kbd>R</kbd> 旋轉 90°、<kbd>Z</kbd>/<kbd>X</kbd> 15°）。</li>
+                <li><b>貨架</b>：往上拉的高度就是頂端輸送帶接口的高度（一進一出），用來把線拉到二樓。滑鼠移到貨架上點一下，可以再疊一層接口（+2 m）。</li>
+                <li><b>堆疊</b>：分流器／集合器移到另一台分流器／集合器上點一下，直接疊成第二層。</li>
+                <li>按 <kbd>6</kbd> 建造<b>牆壁</b>（預設一層樓 4 m）：點兩下設定兩端，端點會吸附到既有牆壁的端點，接成轉角或 T 字；點在既有牆壁的頂端，加蓋一層。</li>
+                <li>按 <kbd>7</kbd> <b>供箱洞口</b>（送出箱子）或 <kbd>8</kbd> <b>收箱洞口</b>（接收箱子），點在牆上想開洞的位置，正面、背面、任何高度都可以，洞口也能上下疊放；按住 <kbd>Ctrl</kbd> 對齊其他洞口的位置／高度和設施接口的高度。點洞口可以在右側面板調速率、位置、高度。</li>
+                <li><b>3D</b>：藍色網格標出目前的高度；已放好的設施在右側面板改「底部高度」（貨架改「接口高度」）。輸送帶會自動爬坡（上限 35°）。</li>
+                <li>按 <kbd>C</kbd> 拿起輸送帶：點<b>出口</b>（橘色箭頭）設定起點，再點<b>入口</b>（綠色箭頭）完成。</li>
+                <li>也可以從入口往回拉，流向會自動反轉。</li>
+                <li>終點點在空地上會放一個支撐點，並接著拉下一段（連續建造）。</li>
+                <li>把<b>分流器／集合器</b>放到輸送帶上（點一下），會把它切成兩段。</li>
+              </ol>
+              <h3>拉出工整的線</h3>
+              <ul>
+                <li>按住 <kbd>Ctrl</kbd>：對齊引導線（接口的延長線、起點的軸線），交點也會吸附。</li>
+                <li><kbd>R</kbd> 切換模式：<b>預設</b>（彎-直-彎）、<b>直線／正交</b>（L/Z/U 形直角）、<b>曲線</b>（單一圓弧）。</li>
+                <li><kbd>G</kbd> 網格吸附（0.5 m）；<kbd>Z</kbd>/<kbd>X</kbd> 旋轉空地端點的方向；<kbd>[</kbd> <kbd>]</kbd> 調整空地端點的高度。</li>
+              </ul>
+            </div>
+            <div>
+              <h3>操作</h3>
+              <table>
+                <tr><td>左鍵</td><td>建造／選取／拖曳移動設施</td></tr>
+                <tr><td>右鍵</td><td>點擊＝取消；拖曳＝旋轉視角</td></tr>
+                <tr><td>中鍵／WASD</td><td>平移視角</td></tr>
+                <tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>視角上升／下降</td></tr>
+                <tr><td>滾輪</td><td>縮放</td></tr>
+                <tr><td><kbd>F</kbd></td><td>拆除（點洞口只拆洞口）</td></tr>
+                <tr><td><kbd>Del</kbd></td><td>刪除選取的物件</td></tr>
+                <tr><td><kbd>Space</kbd></td><td>暫停／繼續模擬</td></tr>
+                <tr><td><kbd>L</kbd> / <kbd>M</kbd></td><td>標籤／利用率熱圖</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>取消／回到選取</td></tr>
+              </table>
+              <h3>吞吐量</h3>
+              <p>
+                右側「理論」數字來自穩態流量分析（含回壓、分流器重新分配、集合器公平分配），「實測」來自逐一模擬每個物流箱（間距 1.2 m）。
+                所有輸送帶容量相同：60 箱/分。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="toasts"></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
