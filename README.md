@@ -30,8 +30,14 @@ workflow dispatch. It uses Node.js 22, installs locked dependencies with
 `npm ci`, runs `npm test`, and builds the frontend with `npm run build`.
 Successful runs save `dist/` as the `frontend-dist` artifact for 14 days;
 download it from the workflow run's summary page to get the static website.
-The workflow builds the website; hosting or GitHub Pages deployment is a
-separate step.
+Pushes to `main` and manual workflow runs on `main` also deploy the tested
+build to [GitHub Pages](https://jason9075.github.io/conveyor_belt_build/).
+Pull requests and other branches only build and test; they do not deploy.
+
+For initial setup, open the repository's **Settings → Pages** and set
+**Build and deployment → Source** to **GitHub Actions**. Then push to `main`
+or run the workflow manually. The `github-pages` environment and deployment
+URL appear in the workflow run once the deployment succeeds.
 
 The CI setup follows [GitHub's Node.js build and test guide](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs).
 
